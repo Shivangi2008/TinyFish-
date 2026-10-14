@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RenderScope SEO Auditor</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --panel: #ffffff; --ink: #1c1b18; --muted: #6b675e; --line: #e4e1d8;
+    --accent: #ff6a00; --high: #c8372d; --med: #c98a00; --low: #5b6b7a; --good: #2f8a4c;
+    --code-bg: #f1efe8; --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --panel: #1d1c1a; --ink: #eceae4; --muted: #a29d92; --line: #33312d;
+      --high: #ef6b5f; --med: #e2ac2f; --low: #93a3b3; --good: #5cbf7a; --code-bg: #262522;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 16px 64px; }
+  header h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
+  header h1 span { color: var(--accent); }
+  header p { margin: 4px 0 20px; color: var(--muted); }
+  form { display: grid; grid-template-columns: 1fr 260px auto; gap: 8px; }
+  input[type=text] { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+                     background: var(--panel); color: var(--ink); font-size: 15px; }
+  button { padding: 12px 20px; border: 0; border-radius: 10px; background: var(--ink);
+           color: var(--bg); font-weight: 600; cursor: pointer; font-size: 15px; }
+  button:disabled { opacity: .5; cursor: wait; }
+  .opts { display: flex; gap: 18px; margin-top: 10px; color: var(--muted); font-size: 14px; flex-wrap: wrap; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-top: 16px; }
+  .panel h2 { margin: 0 0 12px; font-size: 17px; }
+  .muted { color: var(--muted); }
+  .hidden { display: none; }
+  .steps li { margin: 4px 0; } .steps li.done { color: var(--good); }
+  .summary { display: grid; grid-template-columns: 140px 1fr; gap: 24px; align-items: center; }
+  .ring { width: 130px; height: 130px; border-radius: 50%; display: grid; place-items: center; }
+  .ring div { width: 104px; height: 104px; border-radius: 50%; background: var(--panel);
+              display: grid; place-items: center; font-size: 34px; font-weight: 700; }
+  .counts { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+          border: 1px solid currentColor; }
+  .chip.high { color: var(--high); } .chip.medium { color: var(--med); } .chip.low { color: var(--low); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  td.bad { color: var(--high); font-weight: 600; }
+  .issue { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .issue:last-child { border-bottom: 0; }
+  .issue .cat { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .issue b { display: inline-block; margin-left: 6px; }
+  .evidence { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; color: var(--muted); margin-top: 4px; word-break: break-all; }
+  .fix { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 12px 0; }
+  .fix h3 { margin: 0 0 6px; font-size: 15px; }
+  pre { background: var(--code-bg); padding: 12px; border-radius: 8px; overflow-x: auto;
+        font: 12.5px/1.5 var(--mono); margin: 8px 0 0; white-space: pre-wrap; word-break: break-word; }
+  .copy { float: right; padding: 4px 10px; font-size: 12px; border-radius: 6px; background: var(--code-bg); color: var(--ink); border: 1px solid var(--line); }
+  .serp-preview { font-family: Arial, sans-serif; max-width: 600px; }
+  .serp-preview .u { color: #4d5156; font-size: 13px; }
+  .serp-preview .t { color: #1a0dab; font-size: 19px; margin: 2px 0; }
+  .serp-preview .d { color: #4d5156; font-size: 14px; }
+  @media (prefers-color-scheme: dark) { .serp-preview .t { color: #99c3ff; } .serp-preview .u, .serp-preview .d { color: #bdc1c6; } }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+  ol.serp { padding-left: 20px; margin: 0; } ol.serp li { margin: 6px 0; }
+  ol.serp li.ours { font-weight: 700; color: var(--good); }
+  .err { color: var(--high); font-size: 13px; }
+  @media (max-width: 720px) {
+    form { grid-template-columns: 1fr; } .summary, .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Render<span>Scope</span></h1>
+    <p>Audits a page as a plain crawler sees it <em>and</em> as a real browser renders it (TinyFish), then writes the fixes (Gemini).</p>
+  </header>
+
+  <form id="f">
+    <input type="text" id="url" placeholder="https://example.com/page" required>
+    <input type="text" id="keyword" placeholder="Target keyword (optional)">
+    <button id="go">Audit</button>
+  </form>
+  <div class="opts">
+    <label><input type="checkbox" id="deep" checked> Real-browser UX check (TinyFish Agent, ~1-2 min, metered)</label>
+    <label><input type="checkbox" id="cache"> Use saved result if available</label>
+  </div>
+
+  <div id="loading" class="panel hidden">
+    <h2>Auditing…</h2>
+    <ul class="steps" id="steps"></ul>
+  </div>
+  <div id="error" class="panel hidden err"></div>
+  <div id="report" class="hidden"></div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const STEPS = [
+  "Fetching raw HTML (what a basic crawler sees)",
+  "Rendering the page in a real browser (TinyFish Fetch)",
+  "Checking live search results (TinyFish Search)",
+  "Visiting the page as a real user (TinyFish Agent)",
+  "Writing fixes (Gemini)",
+];
+let stepTimer;
+function startSteps(deep) {
+  const list = STEPS.filter((s, i) => deep || i !== 3);
+  $("#steps").innerHTML = list.map((s) => `<li>${s}</li>`).join("");
+  let i = 0;
+  const items = [...document.querySelectorAll("#steps li")];
+  stepTimer = setInterval(() => { if (i < items.length - 1) items[i++].classList.add("done"); }, deep ? 15000 : 4000);
+}
+
+$("#f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const deep = $("#deep").checked;
+  $("#go").disabled = true;
+  $("#report").classList.add("hidden");
+  $("#error").classList.add("hidden");
+  $("#loading").classList.remove("hidden");
+  startSteps(deep);
+  try {
+    const res = await fetch("/api/audit", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ url: $("#url").value, keyword: $("#keyword").value || null,
+                             deep_ux: deep, use_cache: $("#cache").checked }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : res.statusText);
+    render(data);
+  } catch (err) {
+    $("#error").textContent = "Audit failed: " + err.message;
+    $("#error").classList.remove("hidden");
+  } finally {
+    clearInterval(stepTimer);
+    $("#loading").classList.add("hidden");
+    $("#go").disabled = false;
+  }
+});
+
+function render(d) {
+  const color = d.score >= 80 ? "var(--good)" : d.score >= 50 ? "var(--med)" : "var(--high)";
+  const n = (sev) => d.issues.filter((i) => i.severity === sev).length;
+  const host = new URL(d.url).hostname.replace(/^www\./, "");
+  let html = `
+  <div class="panel summary">
+    <div class="ring" style="background: conic-gradient(${color} ${d.score * 3.6}deg, var(--line) 0)"><div>${d.score}</div></div>
+    <div>
+      <div class="label">SEO score</div>
+      <div style="font-size:18px;font-weight:600;word-break:break-all">${esc(d.url)}</div>
+      <div class="counts">
+        <span class="chip high">${n("high")} high</span><span class="chip medium">${n("medium")} medium</span><span class="chip low">${n("low")} low</span>
+      </div>
+      ${d.fixes ? `<p style="margin:10px 0 0">${esc(d.fixes.summary)}</p>` : ""}
+      <div class="muted" style="font-size:12px;margin-top:8px">${d.cached ? "Saved result · " : ""}${d.total_seconds ?? ""}s total</div>
+    </div>
+  </div>`;
+
+  // Crawler vs browser comparison
+  if (d.raw || d.rendered) {
+    const r = d.raw || {}, g = d.rendered || {};
+    const row = (label, a, b, bad) => `<tr><td>${label}</td><td class="${bad ? "bad" : ""}">${esc(a)}</td><td>${esc(b)}</td></tr>`;
+    html += `
+    <div class="panel">
+      <h2>What a crawler sees vs. what a browser renders</h2>
+      <table>
+        <tr><th></th><th>Raw HTML (no JavaScript)</th><th>Rendered by TinyFish</th></tr>
+        ${row("Words", r.word_count ?? "–", g.word_count ?? "–", g.word_count > 100 && r.word_count < 0.3 * g.word_count)}
+        ${row("Title", r.title || "(none)", g.title || "(none)", !r.title && g.title)}
+        ${row("H1", (r.h1 || []).join(" | ") || "(none)", (g.h1 || []).join(" | ") || "(none)", !(r.h1 || []).length && (g.h1 || []).length)}
+        ${row("Headings", (r.headings || []).length, (g.headings || []).length, false)}
+        ${row("Internal links", r.internal_links ?? "–", g.internal_links ?? "–", g.internal_links > 2 * r.internal_links && g.internal_links - r.internal_links > 10)}
+        ${row("Images", r.images ?? "–", g.images ?? "–", false)}
+        ${row("Structured data", (r.jsonld_types || []).join(", ") || "(none)", "", false)}
+      </table>
+    </div>`;
+  }
+
+  // Issues
+  html += `<div class="panel"><h2>Issues (${d.issues.length})</h2>` +
+    (d.issues.length ? d.issues.map((i) => `
+      <div class="issue">
+        <span class="chip ${i.severity}">${i.severity}</span><b>${esc(i.title)}</b><span class="cat">${esc(i.category)}</span>
+        ${i.detail ? `<div>${esc(i.detail)}</div>` : ""}
+        ${i.evidence ? `<div class="evidence">${esc(i.evidence)}</div>` : ""}
+      </div>`).join("") : `<p class="muted">No issues found.</p>`) + `</div>`;
+
+  // Fixes
+  if (d.fixes) {
+    const f = d.fixes;
+    html += `
+    <div class="panel">
+      <h2>Search result preview</h2>
+      <div class="grid2">
+        <div><div class="label">Now</div>${serpPreview(d.url, d.raw?.title || d.rendered?.title, d.raw?.meta_description || d.rendered?.meta_description)}</div>
+        <div><div class="label">With Gemini's rewrite</div>${serpPreview(d.url, f.optimized_title, f.optimized_meta_description)}</div>
+      </div>
+      <pre><button class="copy">Copy</button>${esc(`<title>${f.optimized_title}</title>\n<meta name="description" content="${f.optimized_meta_description}">`)}</pre>
+    </div>
+    <div class="panel">
+      <h2>Fixes, in priority order</h2>
+      ${f.fixes.map((x) => `
+        <div class="fix">
+          <h3><span class="chip ${x.priority}">${x.priority}</span> ${esc(x.title)}</h3>
+          <div class="muted">${esc(x.why_it_matters)}</div>
+          <div style="margin-top:6px">${esc(x.how_to_fix)}</div>
+          ${x.code && x.code_language !== "none" ? `<pre><button class="copy">Copy</button>${esc(x.code)}</pre>` : ""}
+        </div>`).join("")}
+      ${f.json_ld ? `<h3 style="margin-top:20px">Structured data (JSON-LD)</h3><pre><button class="copy">Copy</button>${esc(f.json_ld)}</pre>` : ""}
+    </div>`;
+  }
+
+  // SERP + UX
+  html += `<div class="grid2">`;
+  if (d.serp) {
+    html += `<div class="panel"><h2>Live search: “${esc(d.serp.query)}”</h2><ol class="serp">` +
+      d.serp.results.map((x) => `<li class="${new URL(x.url).hostname.includes(host) ? "ours" : ""}">
+        ${esc(x.title)}<div class="muted" style="font-size:12px;word-break:break-all">${esc(x.url)}</div></li>`).join("") +
+      `</ol></div>`;
+  }
+  if (d.ux) {
+    const u = d.ux;
+    html += `<div class="panel"><h2>Real-browser visit (TinyFish Agent)</h2>
+      <p><b>Popup on load:</b> ${u.blocking_overlay ? `<span class="err">Yes</span> – ${esc(u.overlay_description)}` : "None"}</p>
+      <p><b>Headline seen:</b> ${esc(u.main_headline) || "–"}</p>
+      <p><b>Loaded on scroll:</b> ${esc(u.content_loaded_on_scroll) || "–"}</p>
+      ${[...(u.broken_or_empty_elements || []), ...(u.ux_issues || [])].map((x) => `<div class="evidence">• ${esc(x)}</div>`).join("")}
+      <div class="muted" style="font-size:12px;margin-top:8px">${u._steps ?? "?"} agent steps</div></div>`;
+  }
+  html += `</div>`;
+
+  const errs = Object.entries(d.errors || {});
+  if (errs.length) {
+    html += `<div class="panel"><h2>Steps that failed</h2>${errs.map(([k, v]) => `<div class="err"><b>${esc(k)}</b>: ${esc(v)}</div>`).join("")}</div>`;
+  }
+  if (d.timings) {
+    html += `<p class="muted" style="font-size:12px">Timings: ${Object.entries(d.timings).map(([k, v]) => `${k} ${v}s`).join(" · ")}</p>`;
+  }
+
+  $("#report").innerHTML = html;
+  $("#report").classList.remove("hidden");
+}
+
+function serpPreview(url, title, desc) {
+  const u = new URL(url);
+  return `<div class="serp-preview">
+    <div class="u">${esc(u.hostname)}${esc(u.pathname !== "/" ? " › " + u.pathname.split("/").filter(Boolean).join(" › ") : "")}</div>
+    <div class="t">${esc((title || "(no title)").slice(0, 60))}${(title || "").length > 60 ? "…" : ""}</div>
+    <div class="d">${esc((desc || "(no description – Google will pick text from the page)").slice(0, 160))}${(desc || "").length > 160 ? "…" : ""}</div>
+  </div>`;
+}
+
+document.addEventListener("click", (e) => {
+  if (!e.target.classList.contains("copy")) return;
+  const pre = e.target.parentElement;
+  const text = pre.textContent.replace(/^Copy/, "");
+  navigator.clipboard.writeText(text).then(() => { e.target.textContent = "Copied"; setTimeout(() => (e.target.textContent = "Copy"), 1200); });
+});
+</script>
+</body>
+</html>
